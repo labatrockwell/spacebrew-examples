@@ -1,5 +1,5 @@
 String server="ec2-184-72-140-184.compute-1.amazonaws.com";
-String name="processingPOwerTailJSON";
+String name="processingPowertail";
 String description ="This is an example client that has a powertail and a light atteched and it turns on the light via the power tail.";
 import processing.serial.*;
 
@@ -20,11 +20,11 @@ void setup() {
   c = new SpacebrewClient( this );
   
   // add each thing you publish and subscribe to
-  c.addPublish( "procPress", toSend );
-
+  c.addPublish( "procPressTesting", toSend );
+  c.addPublish( "currentPower", poweswitchState );
     
-  c.addSubscribe( "partyMode", "boolean" );
-  c.addSubscribe( "color", "number" );
+  c.addSubscribe( "powerSwitch", "boolean" );
+  c.addSubscribe( "powerState", "boolean" );
   c.addSubscribe( "text", "string" );
   
   // connect!
@@ -43,37 +43,50 @@ void draw() {
   text(numClicks, 20, 120);
   textSize(30);
   text("Push spacebar to send message", 20, 320);
+
   
     }
   
   
 
-void keyPressed() {   
-   c.send( "procPress", toSend);
+void keyPressed() {   // test your connection via procesing
+   c.send( "procPressTesting", toSend);
    toSend = !toSend;
 }
 
-void onIntMessage( String name, int value ){
-  println("got int message "+name +" : "+ value);
-     poweswitchState = !poweswitchState;
-          if (poweswitchState == true){
-             myPort.write('H');
-          }
-          else{
-            myPort.write('L');
-          } 
-}
+
+
+
 
 void onBooleanMessage( String name, boolean value ){
-  println("got bool message "+name +" : "+ value); 
- 
+println("got bool message "+name +" : "+ value); 
+  
+  if (name.equals("powerSwitch")){
+
    poweswitchState = !poweswitchState;
           if (poweswitchState == true){
              myPort.write('H');
+             c.send("currentPower", poweswitchState);
           }
           else{
             myPort.write('L');
+            c.send("currentPower", poweswitchState);
+        
           } 
+            println("POWER SWITCH got bool message "+name +" : "+ value); 
+}
+else if (name.equals("powerState")){
+  println("POWER STATE got bool message "+name +" : "+ value); 
+  if (value == true){
+    myPort.write('H');
+    c.send("currentPower", poweswitchState);
+  }
+    else {
+    myPort.write('L');
+            c.send("currentPower", poweswitchState);
+  
+}
+}
 }
 
 void onStringMessage( String name, String value ){
@@ -81,8 +94,11 @@ void onStringMessage( String name, String value ){
      poweswitchState = !poweswitchState;
           if (poweswitchState == true){
              myPort.write('H');
+             c.send("currentPower", poweswitchState);
           }
           else{
             myPort.write('L');
+            c.send("currentPower", poweswitchState);
+            
           } 
 }
