@@ -9,7 +9,7 @@
         <script type="text/javascript" src="js/jq.js"></script>
 <script type="text/javascript">
 $(document).ready( function() {
-	setup();
+	setupws();
 });
 
 function gup( name ) {
@@ -48,7 +48,9 @@ var myConfig = {
   }
 };
 
-var ws = new WebSocket("ws://"+server+":9000");
+var ws;
+var setupws = function(){
+  ws = new WebSocket("ws://"+server+":9000");
     ws.onopen = function() {
         console.log("WebSockets connection opened");
         document.getElementById("output").innerHTML = "send a bang to visit " + address;
@@ -90,7 +92,7 @@ var ws = new WebSocket("ws://"+server+":9000");
         console.log("WebSockets connection closed");
         document.getElementById("output").innerHTML = "no longer connected to spacebrew :(";
     }
-
+};
 
 function incrementIndex() {
     index += 1;
