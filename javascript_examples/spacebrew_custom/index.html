@@ -1,0 +1,174 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<title>Spacebrew Custom</title>
+		<meta charset="utf-8">
+		<!-- basic libraries -->
+        <script type="text/javascript" src="js/jquery/jq.js"></script>
+<script type="text/javascript">
+$(document).ready( function() {
+	setupws();
+});
+
+function gup( name ) {
+  name = name.replace(/[\[]/,"\\\[").replace(/[\]]/,"\\\]");
+  var regexS = "[\\?&]"+name+"=([^&#]*)";
+  var regex = new RegExp( regexS );
+  var results = regex.exec( window.location.href );
+  if( results == null )
+    return "";
+  else
+    return results[1];
+}
+
+var index = 0;
+
+var name = gup('name') || "custom"; 
+var server = gup('server') || 'localhost';
+var prev = {string:undefined,boolean:undefined,range:undefined};
+var data = {};
+
+console.log(name);
+
+var myConfig = {
+"config": {
+ "name": name,
+ "description": "This only passes true values.",
+ "publish": {
+   "messages": [
+    {
+      "name": "boolean",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "name":"string",
+      "type":"string",
+      "default":""
+    },
+    {
+      "name":"range",
+      "type":"number",
+      "default":0
+    }
+   ]
+ },
+ "subscribe": {
+   "messages": [
+     {
+       "name": "boolean",
+       "type": "boolean"
+     },
+    {
+      "name":"string",
+      "type":"string"
+    },
+    {
+      "name":"range",
+      "type":"number"
+    }
+   ]
+ }
+}
+};
+
+var ws;
+var setupws = function(){
+  ws = new WebSocket("ws://"+server+":9000");
+    ws.onopen = function() {
+        console.log("WebSockets connection opened");
+        display( 
+        "<p>Override the onString(string), onBoolean(bool), and onRange(range) functions\
+        to receive incoming messages. \
+        <br />You can also access prevString, prevBoolean, and prevRange\
+        to see the most-recently received values for any of those types (updated after on____ is called).\
+        <br />There is a variable called 'data' which you can use to persist data between callbacks.\
+        <br />the data variable starts as a map.\
+        <br />There is a function display(string) which will overwrite this content with whatever you pass it. That function uses innerHTML to write the content, so you can use markup.</p>\
+\
+        <p>example (written in javascript console):\
+        <br />data.count = 0\
+        <br />onBoolean = function(b){data.count++;display(data.count);}\
+        <br />onString = function(s){return {string:s.toUpperCase()};}\
+        <br />onRange = function(r){return {string:prevString.substring(0,Math.floor(r*prevString.length/1024)}};\
+        </p>");
+        var nameMsg = { "name": [
+        	{"name": name}
+       	]};
+   		ws.send(JSON.stringify(nameMsg));
+
+      // send my config
+      ws.send(JSON.stringify(myConfig));
+    }
+    ws.onmessage = function(e) {
+        
+        var currName = JSON.parse(e.data).message.name;
+        var currType = JSON.parse(e.data).message.type;
+        var currValue = JSON.parse(e.data).message.value;
+        var output;
+        
+        if (currName == "boolean") {
+          currValue = Boolean(currValue);
+          output = onBoolean(currValue);
+          prevBoolean = currValue;
+        } else if (currName == "string"){
+          output = onString(currValue);
+          prevString = currValue;
+        } else if (currName == "range"){
+          output = onRange(currValue);
+          prevRange = currValue;
+        }
+        if (output){
+          if (output.string){
+            sendMessage("string",output.string);
+          }
+          if (output.range){
+            sendMessage("range",output.range);
+          }
+          if (output.boolean){
+            sendMessage("boolean",output.boolean);
+          }
+        }
+    }
+    ws.onclose = function() {
+        console.log("WebSockets connection closed");
+        document.getElementById("output").innerHTML = "no longer connected to spacebrew :(";
+    }
+};
+
+function sendMessage(type, value){
+  var message = {message:
+       {
+           clientName:name,
+           name:type,
+           type:(type == "range" ? "number" : type),
+           value:value
+       }
+    }
+
+  //console.log(message);
+  ws.send(JSON.stringify(message));
+};
+
+function display(s){
+  document.getElementById("output").innerHTML = s;
+};
+
+var onString = function(s){
+  console.log("received in onString function: " + s);
+  console.log("opportunity to return {string:_ ,boolean:_ ,range:_}");
+}, onBoolean = function(b){
+  console.log("received in onBoolean function: " + b);
+  console.log("opportunity to return {string:_ ,boolean:_ ,range:_}");
+}, onRange = function(r){
+  console.log("received in onRange function: " + r);
+  console.log("opportunity to return {string:_ ,boolean:_ ,range:_}");
+};
+
+</script>
+		<!-- MAIN -->
+	</head>
+	<body>
+		<h3 id="output">Not Connected to Spacebrew :(</h3>
+   </body>
+</html>
