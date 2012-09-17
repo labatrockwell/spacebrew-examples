@@ -10,13 +10,13 @@ $(document).ready( function() {
 	setupws();
 });
 
-function gup( name ) {
+function gup( name, defaultValue ) {
   name = name.replace(/[\[]/,"\\\[").replace(/[\]]/,"\\\]");
   var regexS = "[\\?&]"+name+"=([^&#]*)";
   var regex = new RegExp( regexS );
   var results = regex.exec( window.location.href );
   if( results == null )
-    return "";
+    return defaultValue;
   else
     return results[1];
 }
@@ -25,6 +25,12 @@ var index = 0;
 
 var name = gup('name') || "custom"; 
 var server = gup('server') || 'localhost';
+var stringInputs = unescape(gup('stringIns', "string"));
+var booleanInputs = unescape(gup('booleanIns', "boolean"));
+var rangeInputs = unescape(gup('rangeIns', "range"));
+var stringOutputs = unescape(gup('stringOuts', "string"));
+var booleanOutputs = unescape(gup('booleanOuts', "boolean"));
+var rangeOutputs = unescape(gup("rangeOuts", "range"));
 var prev = {string:undefined,boolean:undefined,range:undefined};
 var data = {};
 
@@ -35,42 +41,38 @@ var myConfig = {
  "name": name,
  "description": "This only passes true values.",
  "publish": {
-   "messages": [
-    {
-      "name": "boolean",
-      "type": "boolean",
-      "default": true
-    },
-    {
-      "name":"string",
-      "type":"string",
-      "default":""
-    },
-    {
-      "name":"range",
-      "type":"number",
-      "default":0
-    }
-   ]
+   "messages": []
  },
  "subscribe": {
-   "messages": [
-     {
-       "name": "boolean",
-       "type": "boolean"
-     },
-    {
-      "name":"string",
-      "type":"string"
-    },
-    {
-      "name":"range",
-      "type":"number"
-    }
-   ]
+   "messages": []
  }
 }
 };
+
+function strip(s){
+  return s.replace(/(^\s*)|(\s*$)/gi,'');
+}
+
+function populateConfig(){
+  var looping = [{type:'string',publish:stringOutputs, subscribe:stringInputs},
+                  {type:'boolean',publish:booleanOutputs, subscribe:booleanInputs},
+                  {type:'range',publish:rangeOutputs, subscribe:rangeInputs}];
+  var currLooping;
+  var types = ['subscribe','publish'];
+  var currType;
+  for(var i = 0; i < looping.length; i++){
+    for(var j = 0; j < types.length; j++){
+      currType = types[j];
+      if (looping[i][currType]){
+        currLooping = looping[i][currType].split(',').map(strip);
+        for(var k = 0; k < currLooping.length; k++){
+          myConfig.config[currType].messages.push({name:currLooping[k],type:looping[i].type});
+        }
+      }
+    }
+  }
+};
+populateConfig();
 
 var ws;
 var setupws = function(){
@@ -123,14 +125,14 @@ var setupws = function(){
           prevRange = currValue;
         }
         if (output){
-          if (output.string){
-            sendMessage("string",output.string);
+          if (output.string && stringOutputs){
+            sendMessage(stringOutputs.split(',')[0], output.string, 'string');
           }
-          if (output.range){
-            sendMessage("range",output.range);
+          if (output.range && rangeOutputs){
+            sendMessage(rangeOutputs.split(',')[0], output.range,'range');
           }
-          if (output.boolean){
-            sendMessage("boolean",output.boolean);
+          if (output.boolean && booleanOutputs){
+            sendMessage(booleanOutputs.split(',')[0], output.boolean, 'boolean');
           }
         }
     }
@@ -146,15 +148,19 @@ function getLink(){
   if (qsIndex >= 0){
     href = href.substring(0,qsIndex);
   }
-  return href + "?name=" + name + "&server=" + server + "&code=" + escape("onRange = " + onRange + ";onString = " + onString + ";onBoolean = " + onBoolean + ";init = " + init);
+  return href + "?name=" + name + "&server=" + server + "&stringIns=" + escape(stringInputs) + "&stringOuts=" + escape(stringOutputs) + "&booleanIns=" + escape(booleanInputs) + "&booleanOuts=" + escape(booleanOutputs) + "&rangeIns=" + escape(rangeInputs) + "&rangeOuts=" + escape(rangeOutputs) + "&code=" + escape("onRange = " + onRange + ";onString = " + onString + ";onBoolean = " + onBoolean + ";init = " + init + ";");
 };
 
-function sendMessage(type, value){
+function sendMessage(publisher, value, type){
+  if (type == "number") type = 'range';
+  if (type != "string" && type != "boolean" && type != "range"){
+    //TODO: glean type from publisher name
+  }
   var message = {message:
        {
            clientName:name,
-           name:type,
-           type:(type == "range" ? "number" : type),
+           name:publisher,
+           type:type,
            value:value
        }
     }
@@ -216,7 +222,7 @@ functions(o - a function designed for you to override, u - a utility function):<
 
 <div class="entry"><div class="name">o - onBoolean(value), onRange(value), onString(value)</div><div class="info"> - a group of functions that are called when data is received on the respective subscriber. the first parameter will contain the actual value received by that subscriber. If you return a map with either 'range', 'string', or 'boolean' keys containing a value, a message will automatically be sent on the respective publisher. For example if you have "return {string:'done processing',boolean:true};" in your function, then a message will be sent on the string and boolean publishers.</div></div>
 
-<div class="entry"><div class="name">u - sendMessage(type, value)</div><div class="info"> - A function for you to explicitly send a value via some publisher. type can be "string","range", or "boolean" and whatever is provided as the second argument will be the contents of the message published.</div></div>
+<div class="entry"><div class="name">u - sendMessage(publisher, value, type)</div><div class="info"> - A function for you to explicitly send a value via some publisher. The publisher must be a configured publisher (defaults: 'string','range', and 'boolean'). Whatever is provided as the second argument will be the contents of the message published. The type must be one of 'string','range', and 'boolean' and must match the type of the registered publisher used as the first argument.</div></div>
 
 <div class="entry"><div class="name">u - getLink()</div><div class="info"> - returns a url that you can copy and paste to easily re-create the current custom functionality. This function dumps out the current 'override-able' functions (init, onBoolean/String/Range)</div></div>
 </div>
