@@ -84,7 +84,10 @@ var setupws = function(){
         to see the most-recently received values for any of those types (updated after on____ is called).\
         <br />There is a variable called 'data' which you can use to persist data between callbacks.\
         <br />the data variable starts as a map.\
-        <br />There is a function display(string) which will overwrite this content with whatever you pass it. That function uses innerHTML to write the content, so you can use markup.</p>\
+        <br />There is a function display(string) which will overwrite this content with whatever you pass it. That function uses innerHTML to write the content, so you can use markup.\
+        <br />There is a function sendMessage(type, value) which will send the specified value\
+        on the appropriate publisher. Valid types are 'string', 'range', and 'boolean'.\
+        <br />There is a function getLink() which will return a link to the current page with the onBoolean/String/Range functions declared. If you overload the provided 'init' function, that code will be run as soon as the websocket opens (after this text is printed).</p>\
 \
         <p>example (written in javascript console):\
         <br />data.count = 0\
@@ -92,6 +95,7 @@ var setupws = function(){
         <br />onString = function(s){return {string:s.toUpperCase()};}\
         <br />onRange = function(r){return {string:prevString.substring(0,Math.floor(r*prevString.length/1024)}};\
         </p>");
+        init();
         var nameMsg = { "name": [
         	{"name": name}
        	]};
@@ -136,6 +140,15 @@ var setupws = function(){
     }
 };
 
+function getLink(){
+  var href = window.location.href;
+  var qsIndex = href.indexOf("?");
+  if (qsIndex >= 0){
+    href = href.substring(0,qsIndex);
+  }
+  return href + "?name=" + name + "&server=" + server + "&code=" + escape("onRange = " + onRange + ";onString = " + onString + ";onBoolean = " + onBoolean + ";init = " + init);
+};
+
 function sendMessage(type, value){
   var message = {message:
        {
@@ -163,7 +176,12 @@ var onString = function(s){
 }, onRange = function(r){
   console.log("received in onRange function: " + r);
   console.log("opportunity to return {string:_ ,boolean:_ ,range:_}");
-};
+}, init = function(){};
+
+var qsCode = gup('code');
+if (qsCode){
+  eval(unescape(qsCode));
+}
 
 </script>
 		<!-- MAIN -->
