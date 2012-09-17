@@ -101,24 +101,24 @@ var setupws = function(){
         var currValue = JSON.parse(e.data).message.value;
         var output;
         
-        if (currName == "boolean") {
+        if (currType == "boolean") {
+          currValue = Boolean(currValue);
           try{
-            currValue = Boolean(currValue);
+            output = onBoolean(currValue, currName);
           } catch(e){
             console.log(e);
           }
-          output = onBoolean(currValue);
           prevBoolean = currValue;
-        } else if (currName == "string"){
+        } else if (currType == "string"){
           try{
-            output = onString(currValue);
+            output = onString(currValue, currName);
           } catch(e){
             console.log(e);
           }
           prevString = currValue;
-        } else if (currName == "range"){
+        } else if (currType == "range"){
           try{
-            output = onRange(currValue);
+            output = onRange(currValue, currName);
           } catch(e){
             console.log(e);
           }
@@ -173,14 +173,14 @@ function display(s){
   document.body.innerHTML = s;
 };
 
-var onString = function(s){
-  console.log("received in onString function: " + s);
+var onString = function(s,n){
+  console.log("received in onString function on subscriber " + n + ": " + s);
   console.log("opportunity to return {string:_ ,boolean:_ ,range:_}");
-}, onBoolean = function(b){
-  console.log("received in onBoolean function: " + b);
+}, onBoolean = function(b,n){
+  console.log("received in onBoolean function on subscriber " + n + ": " + b);
   console.log("opportunity to return {string:_ ,boolean:_ ,range:_}");
-}, onRange = function(r){
-  console.log("received in onRange function: " + r);
+}, onRange = function(r,n){
+  console.log("received in onRange function on subscriber " + n + ": " + r);
   console.log("opportunity to return {string:_ ,boolean:_ ,range:_}");
 }, init = function(){};
 
