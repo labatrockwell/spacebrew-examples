@@ -1,7 +1,7 @@
 /*****************************************************************
   SPACEBREW - Processing text sender
 *****************************************************************/
-String server="localhost";  // change to the url of your host if not local!
+String server="ec2-184-72-140-184.compute-1.amazonaws.com";  // change to the url of your host if not local!
 
 SpacebrewClient sb;
 String name="processingText";
@@ -12,7 +12,7 @@ String sendText = "";
 String inText = "";
 
 void setup() {
-  size(600, 400);
+  size(1000, 400);
   
   sb = new SpacebrewClient( this );
   
