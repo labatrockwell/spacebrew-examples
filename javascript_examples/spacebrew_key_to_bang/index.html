@@ -28,6 +28,7 @@ var index = 0;
 
 var name = gup('name') || "key_to_bang"; 
 var server = gup('server') || 'localhost';
+var chars = gup('chars') || '';
 
 console.log(name);
 var maxCharCode = '~'.charCodeAt(0);
@@ -52,10 +53,17 @@ var myConfig = {
 };
 
 var addTo = myConfig.config.publish.messages;
-for (var i = minCharCode; i <= maxCharCode; i++){
-  var c = String.fromCharCode(i);
-  addTo.push({name:c,type:'boolean',default:'true'});
-};
+if (chars.length == 0){//add everything
+  for (var i = minCharCode; i <= maxCharCode; i++){
+    var c = String.fromCharCode(i);
+    addTo.push({name:c,type:'boolean',default:'true'});
+  };
+} else {
+  chars = unescape(chars);
+  for (var i = 0; i < chars.length; i++){
+    addTo.push({name:chars[i], type:'boolean', default:'true'});
+  }
+}
 
 var ws;
 var setupws = function(){
