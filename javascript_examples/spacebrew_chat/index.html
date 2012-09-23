@@ -3,7 +3,6 @@
 	<head>
 		<title>Spacebrew Chat</title>
 		<meta charset="utf-8">
-		<link rel="stylesheet" href="css/reset.css" type="text/css" media="screen" charset="utf-8" />
 		<link rel="stylesheet" href="css/style.css" type="text/css" media="screen" charset="utf-8" />
 		<!-- basic libraries -->
         <script type="text/javascript" src="js/jquery/jq.js"></script>
@@ -26,16 +25,13 @@ function gup( name ) {
 var name = gup('name') || window.location.href; 
 var server = gup('server') || 'localhost';
 
+
 var index = 0;
-console.log(name);
-var currentMessage = "you clicked?";
-var signageOn = true;
-var currentColor = '#000000';
 
 var myConfig = {
 "config": {
  "name": name,
- "description": "This is an example of a signage system",
+ "description": "A simple and whimsical chat client",
  "publish": {
    "messages": [
      {
@@ -56,7 +52,9 @@ var myConfig = {
 }
 };
 
-var ws = new WebSocket("ws://"+server+":9000");
+var ws;
+function setupWS(){
+  ws = new WebSocket("ws://"+server+":9000");
     ws.onopen = function() {
         console.log("WebSockets connection opened");
         var nameMsg = { "name": [
@@ -66,38 +64,65 @@ var ws = new WebSocket("ws://"+server+":9000");
 
       // send my config
       ws.send(JSON.stringify(myConfig));
+      if (gup('ping')){
+        setInterval(ws.send(''), 60*1000);
+      }
     }
     ws.onmessage = function(e) {
-        console.log("Got WebSockets message: " + e.data);
-        incrementIndex();
+      var data = JSON.parse(e.data);
 
-        var currName = JSON.parse(e.data).message.name;
-        var currType = JSON.parse(e.data).message.type;
-        //currName = "text";
-        var currValue = JSON.parse(e.data).message.value;
-        //currValue = "BIG RED BUTTON";
+        var currName = data.message.name;
+        var currType = data.message.type;
+        var currValue = data.message.value;
+
         if (currType == "string") {
-          document.getElementById("txtReceive").innerText = currValue;
+          addText("them", currValue);
         }
     }
     ws.onclose = function() {
         console.log("WebSockets connection closed");
     }
+  };
 
 
 //-------------------------------------------------------
 function setup (){
 
-// 	// listen to the mouse
   document.getElementById("btnSend").addEventListener('click',sendMessage);
+  setupWS();
 }
 
-function incrementIndex() {
-    index += 1;
-    //console.log(index);
+function addText(from, text){
+  var wrapper = document.createElement("div");
+  wrapper.classList.add("text");
+
+  var user = document.createElement("div");
+  user.classList.add("from");
+  user.innerText = from;
+  //wrapper.appendChild(user);
+
+  var content = document.createElement("div");
+  content.classList.add("content");
+  if (text.length > 0){
+    var upper = text[0].toUpperCase();
+    if ('A' <= upper && upper <= 'Z'){
+      content.innerHTML = "<div class='from'>"+from+":</div><span class='drop "+upper+Math.floor(Math.random()*13)+"'>"+upper+"</span>"+text.substring(1); 
+    } else {
+      content.innerHTML = "div class='from'>"+from+":</div>"+text;
+    }
+  }
+  if (text.toUpperCase)
+  
+  wrapper.appendChild(content);
+
+  var all = document.querySelector("#txtReceive");
+  all.insertBefore(wrapper, all.firstChild);
 }
 
-function sendMessage(){
+function sendMessage(e){
+  e = e || window.event;
+  if (e)e.preventDefault();
+  addText("me", document.getElementById("txtSend").value);
   console.log("sending");
   ws.send(JSON.stringify({
     message:{
@@ -107,14 +132,16 @@ function sendMessage(){
       value:document.getElementById("txtSend").value
     }
   }));
+  return false;
 };
 
 </script>
 		<!-- MAIN -->
 	</head>
 	<body>
-    <textarea id="txtSend"></textarea>
-    <button id="btnSend">send</button>
-    <div id="txtReceive"><div>
-   </body>
+    <textarea id="txtSend" rows='4' cols='60'></textarea>
+    <button id="btnSend" type='submit'>send</button>
+    <div id="txtReceive">
+      <div class='legal'>drop caps provided by http://www.dailydropcap.com</div><div>
+  </body>
 </html>
