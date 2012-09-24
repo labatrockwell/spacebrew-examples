@@ -1,0 +1,247 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<title>Spacebrew Custom</title>
+		<meta charset="utf-8">
+		<!-- basic libraries -->
+        <script type="text/javascript" src="js/jquery/jq.js"></script>
+<script type="text/javascript">
+$(document).ready( function() {
+	setupws();
+});
+
+function gup( name, defaultValue ) {
+  name = name.replace(/[\[]/,"\\\[").replace(/[\]]/,"\\\]");
+  var regexS = "[\\?&]"+name+"=([^&#]*)";
+  var regex = new RegExp( regexS );
+  var results = regex.exec( window.location.href );
+  if( results == null )
+    return defaultValue;
+  else
+    return results[1];
+}
+
+var index = 0;
+
+var name = gup('name') || "custom"; 
+var server = gup('server') || 'localhost';
+var stringInputs = unescape(gup('stringIns', "string"));
+var booleanInputs = unescape(gup('booleanIns', "boolean"));
+var rangeInputs = unescape(gup('rangeIns', "range"));
+var stringOutputs = unescape(gup('stringOuts', "string"));
+var booleanOutputs = unescape(gup('booleanOuts', "boolean"));
+var rangeOutputs = unescape(gup("rangeOuts", "range"));
+var prev = {string:undefined,boolean:undefined,range:undefined};
+var data = {};
+
+console.log(name);
+
+var myConfig = {
+"config": {
+ "name": name,
+ "description": "This only passes true values.",
+ "publish": {
+   "messages": []
+ },
+ "subscribe": {
+   "messages": []
+ }
+}
+};
+
+function strip(s){
+  return s.replace(/(^\s*)|(\s*$)/gi,'');
+}
+
+function populateConfig(){
+  var looping = [{type:'string',publish:stringOutputs, subscribe:stringInputs},
+                  {type:'boolean',publish:booleanOutputs, subscribe:booleanInputs},
+                  {type:'range',publish:rangeOutputs, subscribe:rangeInputs}];
+  var currLooping;
+  var types = ['subscribe','publish'];
+  var currType;
+  for(var i = 0; i < looping.length; i++){
+    for(var j = 0; j < types.length; j++){
+      currType = types[j];
+      if (looping[i][currType]){
+        currLooping = looping[i][currType].split(',').map(strip);
+        for(var k = 0; k < currLooping.length; k++){
+          myConfig.config[currType].messages.push({name:currLooping[k],type:looping[i].type});
+        }
+      }
+    }
+  }
+};
+populateConfig();
+
+var ws;
+var setupws = function(){
+  ws = new WebSocket("ws://"+server+":9000");
+    ws.onopen = function() {
+        console.log("WebSockets connection opened");
+        display( 
+        document.getElementById("introText").text);
+        try{
+          init();
+        } catch(e){
+          console.log(e);
+        }
+        var nameMsg = { "name": [
+        	{"name": name}
+       	]};
+   		ws.send(JSON.stringify(nameMsg));
+
+      // send my config
+      ws.send(JSON.stringify(myConfig));
+    }
+    ws.onmessage = function(e) {
+        
+        var currName = JSON.parse(e.data).message.name;
+        var currType = JSON.parse(e.data).message.type;
+        var currValue = JSON.parse(e.data).message.value;
+        var output;
+        
+        if (currType == "boolean") {
+          currValue = Boolean(currValue);
+          try{
+            output = onBoolean(currValue, currName);
+          } catch(e){
+            console.log(e);
+          }
+          prevBoolean = currValue;
+        } else if (currType == "string"){
+          try{
+            output = onString(currValue, currName);
+          } catch(e){
+            console.log(e);
+          }
+          prevString = currValue;
+        } else if (currType == "range"){
+          try{
+            output = onRange(currValue, currName);
+          } catch(e){
+            console.log(e);
+          }
+          prevRange = currValue;
+        }
+        if (output){
+          if (output.string && stringOutputs){
+            sendMessage(stringOutputs.split(',')[0], output.string, 'string');
+          }
+          if (output.range && rangeOutputs){
+            sendMessage(rangeOutputs.split(',')[0], output.range,'range');
+          }
+          if (output.boolean && booleanOutputs){
+            sendMessage(booleanOutputs.split(',')[0], output.boolean, 'boolean');
+          }
+        }
+    }
+    ws.onclose = function() {
+        console.log("WebSockets connection closed");
+        display("no longer connected to spacebrew :(");
+    }
+};
+
+function getLink(){
+  var href = window.location.href;
+  var qsIndex = href.indexOf("?");
+  if (qsIndex >= 0){
+    href = href.substring(0,qsIndex);
+  }
+  return href + "?name=" + name + "&server=" + server + "&stringIns=" + escape(stringInputs) + "&stringOuts=" + escape(stringOutputs) + "&booleanIns=" + escape(booleanInputs) + "&booleanOuts=" + escape(booleanOutputs) + "&rangeIns=" + escape(rangeInputs) + "&rangeOuts=" + escape(rangeOutputs) + "&code=" + escape("onRange = " + onRange + ";onString = " + onString + ";onBoolean = " + onBoolean + ";init = " + init + ";");
+};
+
+function sendMessage(publisher, value, type){
+  if (type == "number") type = 'range';
+  if (type != "string" && type != "boolean" && type != "range"){
+    //TODO: glean type from publisher name
+  }
+  var message = {message:
+       {
+           clientName:name,
+           name:publisher,
+           type:type,
+           value:value
+       }
+    }
+
+  //console.log(message);
+  ws.send(JSON.stringify(message));
+};
+
+function display(s){
+  document.body.innerHTML = s;
+};
+
+var onString = function(s,n){
+  console.log("received in onString function on subscriber " + n + ": " + s);
+  console.log("opportunity to return {string:_ ,boolean:_ ,range:_}");
+}, onBoolean = function(b,n){
+  console.log("received in onBoolean function on subscriber " + n + ": " + b);
+  console.log("opportunity to return {string:_ ,boolean:_ ,range:_}");
+}, onRange = function(r,n){
+  console.log("received in onRange function on subscriber " + n + ": " + r);
+  console.log("opportunity to return {string:_ ,boolean:_ ,range:_}");
+}, init = function(){};
+
+var qsCode = gup('code');
+if (qsCode){
+  eval(unescape(qsCode));
+}
+
+</script>
+<style type="text/css">
+.section{margin:1em;}
+.header{font-weight:bold;display:block;}
+.name{font-style:italic;}
+.entry{margin-left:2em;margin-bottom:1em;}
+.name{float:left;}
+.info{}
+.code{font-family:monospace;}
+</style>
+<script id="introText" type="text">
+<div style="max-width:800px;margin:0 auto;">
+<div class="section">
+<span class="header">
+brief:</span>
+This is a customizable javascript spacebrew client. You can define and share custom functions to handle and send messages.
+</div>
+
+<div class="section">
+<span class="header">
+variables:</span>
+<div class="entry"><div class="name">data</div><div class="info"> - a variable provided for you to easily store custom information between callbacks. This defaults to a map. Since it is a javascript variable, it can be whatever you want. Remember to initialize your properties, attributes, and keys before use!</div></div>
+
+<div class="entry"><div class="name">prevString, prevBoolean, prevRange</div><div class="info"> - the previously-received values for each respective subscriber. These get updated after the respective functions are called.</div></div>
+</div>
+
+<div class="section">
+<span class="header">
+functions(o - a function designed for you to override, u - a utility function):</span>
+<div class="entry"><div class="name">o - init()</div><div class="info"> - a function that gets run during the 'onOpen' event of the websocket. This function gets run after the introductory text is printed out, so you can provide custom text to describe what your customized page does.</div></div>
+
+<div class="entry"><div class="name">o - onBoolean(value), onRange(value), onString(value)</div><div class="info"> - a group of functions that are called when data is received on the respective subscriber. the first parameter will contain the actual value received by that subscriber. If you return a map with either 'range', 'string', or 'boolean' keys containing a value, a message will automatically be sent on the respective publisher. For example if you have "return {string:'done processing',boolean:true};" in your function, then a message will be sent on the string and boolean publishers.</div></div>
+
+<div class="entry"><div class="name">u - sendMessage(publisher, value, type)</div><div class="info"> - A function for you to explicitly send a value via some publisher. The publisher must be a configured publisher (defaults: 'string','range', and 'boolean'). Whatever is provided as the second argument will be the contents of the message published. The type must be one of 'string','range', and 'boolean' and must match the type of the registered publisher used as the first argument.</div></div>
+
+<div class="entry"><div class="name">u - getLink()</div><div class="info"> - returns a url that you can copy and paste to easily re-create the current custom functionality. This function dumps out the current 'override-able' functions (init, onBoolean/String/Range)</div></div>
+</div>
+<div class="section">
+<span class="header">
+example (written in javascript console):</span>
+<div class="entry code">
+        <br />init = function(){data.count = 0;}
+        <br />init()
+        <br />onBoolean = function(b){data.count++;display(data.count);}
+        <br />onString = function(s){return {string:s.toUpperCase()};}
+        <br />onRange = function(r){return {string:prevString.substring(0,Math.floor(r*prevString.length/1024))}};
+        <br />getLink() //you can take the output of this function and share it or use this custom client again later
+          </div>
+        </div>
+</script>
+		<!-- MAIN -->
+	</head>
+	<body>
+		<h3 id="output">Not Connected to Spacebrew :(</h3>
+   </body>
+</html>
